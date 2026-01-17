@@ -1,0 +1,409 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TipoEntidad {
+  NATURAL
+  JURIDICO
+}
+
+enum EstadoLaboral {
+  ACTIVO
+  INACTIVO
+  VACACIONES
+  SUSPENDIDO
+}
+
+enum RolPrincipal {
+  ADMIN
+  VENDEDOR
+  TECNICO
+  SOPORTE
+  CONTADOR
+}
+
+enum EstadoAcceso {
+  ACTIVO
+  BLOQUEADO
+  PENDIENTE
+}
+
+enum EstadoConexion {
+  ACTIVO
+  SUSPENDIDO
+  CORTADO
+  BAJA
+  PENDIENTE
+}
+
+enum EstadoContrato {
+  ACTIVO
+  SUSPENDIDO
+  CANCELADO
+  PENDIENTE
+}
+
+enum EstadoPedido {
+  PENDIENTE
+  EN_PROCESO
+  COMPLETADO
+  CANCELADO
+}
+
+enum TipoPago {
+  EFECTIVO
+  TRANSFERENCIA
+  TARJETA
+  YAPE
+  PLIN
+}
+
+model Persona {
+  id                      String    @id @default(uuid()) @db.Uuid
+  tipoEntidad             TipoEntidad
+  nombres                 String
+  apellidos               String?
+  fechaNacimiento         DateTime? @db.Date
+  dni                     String?   @unique
+  email                   String?   @unique
+  telefono                String?
+  direccion               String?
+  contactosAdicionales    Json?
+  fechaCreacion           DateTime  @default(now())
+  
+  // Relaciones
+  personaJuridica         PersonaJuridica?
+  personaEmpleado         PersonaEmpleado?
+  personaUsuario          PersonaUsuario?
+  cliente                 Cliente?
+  
+  // Relaciones inversas
+  cabeceras               Cabecera[]
+  clientesVendidos        Cliente[] @relation("Vendedor")
+  representante           PersonaJuridica[] @relation("RepresentanteLegal")
+  
+  @@map("persona")
+}
+
+model PersonaJuridica {
+  id                      String   @id @default(uuid()) @db.Uuid
+  personaId               String   @unique @db.Uuid
+  razonSocial             String
+  ruc                     String   @unique
+  telefono                String?
+  representanteLegalId    String?  @db.Uuid
+  
+  persona                 Persona  @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  representanteLegal      Persona? @relation("RepresentanteLegal", fields: [representanteLegalId], references: [id])
+  
+  @@map("personaJuridica")
+}
+
+model PersonaEmpleado {
+  id                      String         @id @default(uuid()) @db.Uuid
+  personaId               String         @unique @db.Uuid
+  fechaContratacion       DateTime       @db.Date
+  esTecnico               Boolean        @default(false)
+  estadoLaboral           EstadoLaboral  @default(ACTIVO)
+  
+  persona                 Persona        @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  
+  materialesAsignados     MaterialAsignado[] @relation("Tecnico")
+  materialesEntregados    MaterialAsignado[] @relation("PersonalEntrega")
+  
+  @@map("personaEmpleado")
+}
+
+model PersonaUsuario {
+  id                      String        @id @default(uuid()) @db.Uuid
+  personaId               String        @unique @db.Uuid
+  password                String
+  rolPrincipal            RolPrincipal
+  estadoAcceso            EstadoAcceso  @default(PENDIENTE)
+  
+  persona                 Persona       @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  
+  @@map("personaUsuario")
+}
+
+model Cliente {
+  id                      String          @id @default(uuid()) @db.Uuid
+  personaId               String          @unique @db.Uuid
+  puertoId                String?         @unique @db.Uuid
+  zonaId                  String?         @db.Uuid
+  vendedorId              String?         @db.Uuid
+  codigoCliente           String?         @unique
+  estadoConexion          EstadoConexion  @default(PENDIENTE)
+  fechaAlta               DateTime        @default(now()) @db.Date
+  fechaBaja               DateTime?       @db.Date
+  saldoFavor              Decimal         @default(0) @db.Decimal(10, 2)
+  
+  persona                 Persona         @relation(fields: [personaId], references: [id], onDelete: Cascade)
+  puerto                  Puerto?         @relation(fields: [puertoId], references: [id])
+  zona                    Zona?           @relation(fields: [zonaId], references: [id])
+  vendedor                Persona?        @relation("Vendedor", fields: [vendedorId], references: [id])
+  
+  contratos               Contrato[]
+  pagos                   Pago[]
+  pedidos                 Pedido[]
+  ubicaciones             UbicacionInstalacion[]
+  
+  @@map("cliente")
+}
+
+model Cabecera {
+  id                      String   @id @default(uuid()) @db.Uuid
+  arrendadorId            String   @db.Uuid
+  codigo                  String   @unique
+  nombre                  String
+  ubicacion               String?
+  latitud                 Decimal? @db.Decimal(10, 8)
+  longitud                Decimal? @db.Decimal(11, 8)
+  
+  arrendador              Persona  @relation(fields: [arrendadorId], references: [id])
+  zonas                   Zona[]
+  
+  @@map("cabecera")
+}
+
+model Zona {
+  id                      String    @id @default(uuid()) @db.Uuid
+  cabeceraId              String    @db.Uuid
+  codigo                  String    @unique
+  nombre                  String
+  descripcion             String?
+  esActivo                Boolean   @default(true)
+  
+  cabecera                Cabecera  @relation(fields: [cabeceraId], references: [id])
+  
+  cajasNap                CajaNap[]
+  clientes                Cliente[]
+  
+  @@map("zona")
+}
+
+model CajaNap {
+  id                      String   @id @default(uuid()) @db.Uuid
+  zonaId                  String   @db.Uuid
+  puertoAlimentadorId     String?  @db.Uuid
+  splitterInstalado       String?
+  capacidadPuertosTotal   Int
+  puertosUtilizados       Int      @default(0)
+  direccion               String?
+  latitud                 Decimal? @db.Decimal(10, 8)
+  longitud                Decimal? @db.Decimal(11, 8)
+  
+  zona                    Zona     @relation(fields: [zonaId], references: [id])
+  puertoAlimentador       Puerto?  @relation("PuertoAlimentador", fields: [puertoAlimentadorId], references: [id])
+  
+  puertos                 Puerto[] @relation("PuertosCajaNap")
+  
+  @@map("cajaNap")
+}
+
+model Puerto {
+  id                      String   @id @default(uuid()) @db.Uuid
+  cajaNapId               String   @db.Uuid
+  clienteAsignadoId       String?  @db.Uuid
+  numeroPuerto            Int
+  estado                  String   @default("DISPONIBLE")
+  
+  cajaNap                 CajaNap  @relation("PuertosCajaNap", fields: [cajaNapId], references: [id])
+  clienteAsignado         Cliente?
+  
+  cajasNapAlimentadas     CajaNap[] @relation("PuertoAlimentador")
+  
+  @@unique([cajaNapId, numeroPuerto])
+  @@map("puerto")
+}
+
+model UbicacionInstalacion {
+  id                      String   @id @default(uuid()) @db.Uuid
+  clienteId               String   @db.Uuid
+  direccion               String
+  latitud                 Decimal? @db.Decimal(10, 8)
+  longitud                Decimal? @db.Decimal(11, 8)
+  referenciaVisual        String?
+  
+  cliente                 Cliente  @relation(fields: [clienteId], references: [id])
+  
+  contratos               Contrato[]
+  configuracionOnt        ConfiguracionOnt?
+  
+  @@map("ubicacionInstalacion")
+}
+
+model TarifaPlan {
+  id                      String   @id @default(uuid()) @db.Uuid
+  nombrePlan              String
+  velocidadDescarga       String
+  velocidadSubida         String
+  tarifaMensual           Decimal  @db.Decimal(10, 2)
+  incluyeTv               Boolean  @default(false)
+  nroTvsBase              Int      @default(0)
+  comisionVenta           Decimal  @default(0) @db.Decimal(10, 2)
+  
+  contratos               Contrato[]
+  
+  @@map("tarifaPlan")
+}
+
+model Contrato {
+  id                      String               @id @default(uuid()) @db.Uuid
+  clienteId               String               @db.Uuid
+  tarifaPlanId            String               @db.Uuid
+  ubicacionInstalacionId  String               @db.Uuid
+  fechaContrato           DateTime             @default(now()) @db.Date
+  fechaInicioServicio     DateTime?            @db.Date
+  cicloFacturacion        Int                  @default(1)
+  montoActual             Decimal              @db.Decimal(10, 2)
+  comisionGenerada        Decimal              @default(0) @db.Decimal(10, 2)
+  estado                  EstadoContrato       @default(PENDIENTE)
+  
+  cliente                 Cliente              @relation(fields: [clienteId], references: [id])
+  tarifaPlan              TarifaPlan           @relation(fields: [tarifaPlanId], references: [id])
+  ubicacionInstalacion    UbicacionInstalacion @relation(fields: [ubicacionInstalacionId], references: [id])
+  
+  pagos                   Pago[]
+  facturas                FacturaRecibo[]
+  pedidos                 Pedido[]
+  
+  @@map("contrato")
+}
+
+model Pago {
+  id                      String   @id @default(uuid()) @db.Uuid
+  contratoId              String   @db.Uuid
+  clienteId               String   @db.Uuid
+  fechaPago               DateTime @default(now())
+  montoPagado             Decimal  @db.Decimal(10, 2)
+  tipoPago                TipoPago
+  masDetalles             String?
+  
+  contrato                Contrato @relation(fields: [contratoId], references: [id])
+  cliente                 Cliente  @relation(fields: [clienteId], references: [id])
+  
+  detallesPagoFactura     DetallePagoFactura[]
+  
+  @@map("pago")
+}
+
+model FacturaRecibo {
+  id                      String   @id @default(uuid()) @db.Uuid
+  contratoId              String   @db.Uuid
+  periodoFacturado        DateTime @db.Date
+  fechaVencimiento        DateTime @db.Date
+  montoTotal              Decimal  @db.Decimal(10, 2)
+  saldoPendiente          Decimal  @db.Decimal(10, 2)
+  
+  contrato                Contrato @relation(fields: [contratoId], references: [id])
+  
+  detallesPagoFactura     DetallePagoFactura[]
+  
+  @@map("facturaRecibo")
+}
+
+model DetallePagoFactura {
+  id                      String        @id @default(uuid()) @db.Uuid
+  pagoId                  String        @db.Uuid
+  facturaReciboId         String        @db.Uuid
+  montoAplicado           Decimal       @db.Decimal(10, 2)
+  
+  pago                    Pago          @relation(fields: [pagoId], references: [id])
+  facturaRecibo           FacturaRecibo @relation(fields: [facturaReciboId], references: [id])
+  
+  @@map("detallePagoFactura")
+}
+
+model ConfiguracionOnt {
+  id                      String               @id @default(uuid()) @db.Uuid
+  ubicacionInstalacionId  String               @unique @db.Uuid
+  macOnt                  String
+  vlanGestion             Int
+  pppoeUsuario            String
+  pppoePassword           String
+  configWifi              String?
+  
+  ubicacionInstalacion    UbicacionInstalacion @relation(fields: [ubicacionInstalacionId], references: [id])
+  
+  @@map("configuracionOnt")
+}
+
+model TipoPedido {
+  id                      String   @id @default(uuid()) @db.Uuid
+  nombre                  String
+  descripcion             String?
+  prioridadDefault        String   @default("NORMAL")
+  requiereAprobacion      Boolean  @default(false)
+  
+  pedidos                 Pedido[]
+  
+  @@map("tipoPedido")
+}
+
+model Pedido {
+  id                      String        @id @default(uuid()) @db.Uuid
+  clienteId               String        @db.Uuid
+  contratoId              String?       @db.Uuid
+  empleadoReceptorId      String        @db.Uuid
+  tipoPedidoId            String        @db.Uuid
+  numero                  String        @unique
+  fechaSolicitud          DateTime      @default(now())
+  estado                  EstadoPedido  @default(PENDIENTE)
+  motivoCancelacion       String?
+  
+  cliente                 Cliente       @relation(fields: [clienteId], references: [id])
+  contrato                Contrato?     @relation(fields: [contratoId], references: [id])
+  tipoPedido              TipoPedido    @relation(fields: [tipoPedidoId], references: [id])
+  
+  @@map("pedido")
+}
+
+model Material {
+  id                      String   @id @default(uuid()) @db.Uuid
+  nombre                  String
+  descripcion             String?
+  marca                   String?
+  modelo                  String?
+  unidadMedida            String
+  categoria               String
+  requiereDevolucion      Boolean  @default(false)
+  
+  inventarios             Inventario[]
+  materialesAsignados     MaterialAsignado[]
+  
+  @@map("material")
+}
+
+model MaterialAsignado {
+  id                      String   @id @default(uuid()) @db.Uuid
+  tecnicoId               String   @db.Uuid
+  personalEntregaId       String   @db.Uuid
+  materialId              String   @db.Uuid
+  cantidad                Int
+  serial                  String?
+  fechaAsignacion         DateTime @default(now()) @db.Date
+  
+  tecnico                 PersonaEmpleado @relation("Tecnico", fields: [tecnicoId], references: [id])
+  personalEntrega         PersonaEmpleado @relation("PersonalEntrega", fields: [personalEntregaId], references: [id])
+  material                Material        @relation(fields: [materialId], references: [id])
+  
+  @@map("materialAsignado")
+}
+
+model Inventario {
+  id                      String   @id @default(uuid()) @db.Uuid
+  materialId              String   @db.Uuid
+  cantidadDisponible      Int      @default(0)
+  puntoReorden            Int      @default(0)
+  ubicacionAlmacen        String?
+  
+  material                Material @relation(fields: [materialId], references: [id])
+  
+  @@map("inventario")
+}
