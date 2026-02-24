@@ -5,64 +5,45 @@ import { revalidatePath } from "next/cache"
 import { generateCode, isValidDNI, isValidEmail, isValidRUC } from "@/lib/utils"
 import { TipoEntidad, EstadoConexion } from "@prisma/client"
 
+// ─── CREAR CLIENTE ────────────────────────────────────────────────────────────
 export async function crearCliente(formData: FormData) {
   try {
     const tipoEntidad = formData.get("tipoEntidad") as TipoEntidad
-    const email = formData.get("email") as string
-    const telefono = formData.get("telefono") as string
-    const direccion = formData.get("direccion") as string
+    const email = (formData.get("email") as string)?.trim()
+    const telefono = (formData.get("telefono") as string)?.trim()
+    const direccion = (formData.get("direccion") as string)?.trim()
     const zonaId = formData.get("zonaId") as string
-    const vendedorId = formData.get("vendedorId") as string
     const estadoConexion = formData.get("estadoConexion") as EstadoConexion
+    const rawVendedorId = formData.get("vendedorId") as string
 
-    // Validar campos comunes
-    if (!direccion) {
-      return { error: "La dirección es obligatoria" }
-    }
+    if (!direccion) return { error: "La dirección es obligatoria" }
+    if (email && !isValidEmail(email)) return { error: "El email no es válido" }
+    if (!zonaId || zonaId === "none") return { error: "La zona es obligatoria" }
 
-    if (email && !isValidEmail(email)) {
-      return { error: "El email no es válido" }
-    }
+    const zonaExiste = await prisma.zona.findUnique({ where: { id: zonaId } })
+    if (!zonaExiste) return { error: "La zona seleccionada no existe" }
 
-    let persona;
-    let personaJuridica;
+    let persona
+    let personaJuridica
 
     if (tipoEntidad === "NATURAL") {
-      // Validar campos de persona natural
-      const nombres = formData.get("nombres") as string
-      const apellidos = formData.get("apellidos") as string
-      const dni = formData.get("dni") as string
+      const nombres = (formData.get("nombres") as string)?.trim()
+      const apellidos = (formData.get("apellidos") as string)?.trim()
+      const dni = (formData.get("dni") as string)?.trim()
       const fechaNacimiento = formData.get("fechaNacimiento") as string
 
-      if (!nombres || !apellidos || !dni || !telefono) {
-        return { error: "Todos los campos obligatorios deben estar completos" }
-      }
+      if (!nombres || !apellidos || !dni || !telefono)
+        return { error: "Nombres, apellidos, DNI y teléfono son obligatorios" }
+      if (!isValidDNI(dni)) return { error: "El DNI debe tener 8 dígitos numéricos" }
 
-      if (!isValidDNI(dni)) {
-        return { error: "El DNI debe tener 8 dígitos" }
-      }
+      const dniExiste = await prisma.persona.findUnique({ where: { dni } })
+      if (dniExiste) return { error: "Ya existe una persona con este DNI" }
 
-      // Verificar si el DNI ya existe
-      const dniExiste = await prisma.persona.findUnique({
-        where: { dni },
-      })
-
-      if (dniExiste) {
-        return { error: "Ya existe una persona con este DNI" }
-      }
-
-      // Verificar email
       if (email) {
-        const emailExiste = await prisma.persona.findUnique({
-          where: { email },
-        })
-
-        if (emailExiste) {
-          return { error: "Ya existe una persona con este email" }
-        }
+        const emailExiste = await prisma.persona.findUnique({ where: { email } })
+        if (emailExiste) return { error: "Ya existe una persona con este email" }
       }
 
-      // Crear persona natural
       persona = await prisma.persona.create({
         data: {
           tipoEntidad,
@@ -76,64 +57,38 @@ export async function crearCliente(formData: FormData) {
         },
       })
     } else {
-      // PERSONA JURIDICA
-      const razonSocial = formData.get("razonSocial") as string
-      const ruc = formData.get("ruc") as string
-      const telefonoEmpresa = formData.get("telefonoEmpresa") as string
+      const razonSocial = (formData.get("razonSocial") as string)?.trim()
+      const ruc = (formData.get("ruc") as string)?.trim()
+      const telefonoEmpresa = (formData.get("telefonoEmpresa") as string)?.trim()
       const representanteLegalId = formData.get("representanteLegalId") as string
 
-      if (!razonSocial || !ruc || !representanteLegalId) {
-        return { error: "Todos los campos obligatorios deben estar completos" }
-      }
+      if (!razonSocial || !ruc || !representanteLegalId || representanteLegalId === "none")
+        return { error: "Razón social, RUC y representante legal son obligatorios" }
+      if (!isValidRUC(ruc))
+        return { error: "El RUC debe tener 11 dígitos y comenzar con 10 o 20" }
 
-      if (!isValidRUC(ruc)) {
-        return { error: "El RUC debe tener 11 dígitos" }
-      }
+      const rucExiste = await prisma.personaJuridica.findUnique({ where: { ruc } })
+      if (rucExiste) return { error: "Ya existe una empresa con este RUC" }
 
-      // Verificar si el RUC ya existe
-      const rucExiste = await prisma.personaJuridica.findUnique({
-        where: { ruc },
-      })
-
-      if (rucExiste) {
-        return { error: "Ya existe una empresa con este RUC" }
-      }
-
-      // Verificar email
       if (email) {
-        const emailExiste = await prisma.persona.findUnique({
-          where: { email },
-        })
-
-        if (emailExiste) {
-          return { error: "Ya existe una persona con este email" }
-        }
+        const emailExiste = await prisma.persona.findUnique({ where: { email } })
+        if (emailExiste) return { error: "Ya existe una persona con este email" }
       }
 
-      // Verificar que el representante legal existe
-      const representante = await prisma.persona.findUnique({
-        where: { id: representanteLegalId },
-      })
+      const representante = await prisma.persona.findUnique({ where: { id: representanteLegalId } })
+      if (!representante) return { error: "El representante legal seleccionado no existe" }
 
-      if (!representante) {
-        return { error: "El representante legal seleccionado no existe" }
-      }
-
-      // Crear en transacción
       const result = await prisma.$transaction(async (tx) => {
-        // Crear persona base
         const personaCreada = await tx.persona.create({
           data: {
             tipoEntidad,
-            nombres: razonSocial, // Usamos razonSocial como nombres
+            nombres: razonSocial,
             apellidos: "",
             email: email || null,
             telefono: telefono || null,
             direccion,
           },
         })
-
-        // Crear persona jurídica
         const personaJuridicaCreada = await tx.personaJuridica.create({
           data: {
             personaId: personaCreada.id,
@@ -143,7 +98,6 @@ export async function crearCliente(formData: FormData) {
             representanteLegalId,
           },
         })
-
         return { persona: personaCreada, personaJuridica: personaJuridicaCreada }
       })
 
@@ -151,87 +105,98 @@ export async function crearCliente(formData: FormData) {
       personaJuridica = result.personaJuridica
     }
 
-    // Generar código de cliente
-    const codigoCliente = generateCode("CLI-")
+    const vendedorId = rawVendedorId && rawVendedorId !== "none" ? rawVendedorId : null
 
-    // Crear cliente
     const cliente = await prisma.cliente.create({
       data: {
         personaId: persona.id,
         zonaId,
         vendedorId,
-        codigoCliente,
+        codigoCliente: generateCode("CLI-"),
         estadoConexion,
         saldoFavor: 0,
       },
     })
 
     revalidatePath("/dashboard/clientes")
-    return { success: true, data: { persona, personaJuridica, cliente } }
+    return {
+      success: true,
+      data: {
+        persona,
+        personaJuridica,
+        cliente: { ...cliente, saldoFavor: Number(cliente.saldoFavor) },
+      },
+    }
   } catch (error) {
     console.error("Error al crear cliente:", error)
-    return { error: "Error al crear el cliente" }
+    return { error: "Error interno al crear el cliente" }
   }
 }
 
+// ─── ACTUALIZAR CLIENTE ───────────────────────────────────────────────────────
 export async function actualizarCliente(clienteId: string, formData: FormData) {
   try {
-    const nombres = formData.get("nombres") as string
-    const apellidos = formData.get("apellidos") as string
-    const email = formData.get("email") as string
-    const telefono = formData.get("telefono") as string
-    const direccion = formData.get("direccion") as string
+    const tipoEntidad = formData.get("tipoEntidad") as "NATURAL" | "JURIDICO"
+    const email = (formData.get("email") as string)?.trim()
+    const telefono = (formData.get("telefono") as string)?.trim()
+    const direccion = (formData.get("direccion") as string)?.trim()
     const zonaId = formData.get("zonaId") as string
-    const vendedorId = formData.get("vendedorId") as string
     const estadoConexion = formData.get("estadoConexion") as EstadoConexion
+    const rawVendedorId = formData.get("vendedorId") as string
 
-    // Obtener cliente con persona
+    const nombres =
+      tipoEntidad === "JURIDICO"
+        ? (formData.get("razonSocial") as string)?.trim()
+        : (formData.get("nombres") as string)?.trim()
+    const apellidos =
+      tipoEntidad === "JURIDICO" ? null : (formData.get("apellidos") as string)?.trim()
+
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      include: { persona: true },
+      include: { persona: { include: { personaJuridica: true } } },
     })
+    if (!cliente) return { error: "Cliente no encontrado" }
 
-    if (!cliente) {
-      return { error: "Cliente no encontrado" }
-    }
+    if (!nombres) return { error: "El nombre o razón social es obligatorio" }
+    if (!zonaId || zonaId === "none") return { error: "La zona es obligatoria" }
+    if (email && !isValidEmail(email)) return { error: "El email no es válido" }
 
-    // Validar email si cambió
     if (email && email !== cliente.persona.email) {
-      if (!isValidEmail(email)) {
-        return { error: "El email no es válido" }
-      }
-
-      const emailExiste = await prisma.persona.findUnique({
-        where: { email },
+      const emailExiste = await prisma.persona.findFirst({
+        where: { email, NOT: { id: cliente.personaId } },
       })
-
-      if (emailExiste && emailExiste.id !== cliente.persona.id) {
-        return { error: "Ya existe una persona con este email" }
-      }
+      if (emailExiste) return { error: "El email ya está en uso por otra persona" }
     }
 
-    // Actualizar en transacción
+    const vendedorId = rawVendedorId === "none" || rawVendedorId === "" ? null : rawVendedorId
+
     await prisma.$transaction(async (tx) => {
-      // Actualizar persona
       await tx.persona.update({
         where: { id: cliente.personaId },
-        data: {
-          nombres,
-          apellidos,
-          email: email || null,
-          telefono,
-          direccion,
-        },
+        data: { nombres, apellidos, email: email || null, telefono, direccion },
       })
 
-      // Actualizar cliente
+      if (tipoEntidad === "JURIDICO") {
+        const ruc = (formData.get("ruc") as string)?.trim()
+        const representanteLegalId = formData.get("representanteLegalId") as string
+        await tx.personaJuridica.upsert({
+          where: { personaId: cliente.personaId },
+          update: {
+            ruc,
+            representanteLegalId: representanteLegalId === "none" ? null : representanteLegalId,
+          },
+          create: {
+            personaId: cliente.personaId,
+            razonSocial: nombres,
+            ruc,
+            representanteLegalId: representanteLegalId === "none" ? null : representanteLegalId,
+          },
+        })
+      }
+
       await tx.cliente.update({
         where: { id: clienteId },
-        data: {
-          zonaId,
-          vendedorId,
-          estadoConexion,
-        },
+        data: { zonaId, vendedorId, estadoConexion },
       })
     })
 
@@ -240,38 +205,30 @@ export async function actualizarCliente(clienteId: string, formData: FormData) {
     return { success: true }
   } catch (error) {
     console.error("Error al actualizar cliente:", error)
-    return { error: "Error al actualizar el cliente" }
+    return { error: "Error interno al actualizar el cliente" }
   }
 }
 
+// ─── ELIMINAR CLIENTE ─────────────────────────────────────────────────────────
 export async function eliminarCliente(clienteId: string) {
   try {
     const cliente = await prisma.cliente.findUnique({
       where: { id: clienteId },
-      include: {
-        contratos: true,
-        pagos: true,
-      },
+      include: { contratos: true },
     })
+    if (!cliente) return { error: "Cliente no encontrado" }
 
-    if (!cliente) {
-      return { error: "Cliente no encontrado" }
-    }
+    const contratosActivos = cliente.contratos.filter((c) => c.estado === "ACTIVO")
+    if (contratosActivos.length > 0)
+      return { error: "No se puede eliminar un cliente con contratos activos" }
 
-    // Verificar si tiene contratos activos
-    const contratosActivos = cliente.contratos.filter(
-      (c) => c.estado === "ACTIVO"
-    )
-
-    if (contratosActivos.length > 0) {
-      return {
-        error: "No se puede eliminar un cliente con contratos activos",
+    await prisma.$transaction(async (tx) => {
+      const ubicaciones = await tx.ubicacionInstalacion.findMany({ where: { clienteId } })
+      for (const ub of ubicaciones) {
+        await tx.configuracionOnt.deleteMany({ where: { ubicacionInstalacionId: ub.id } })
       }
-    }
-
-    // Eliminar cliente (la persona se mantiene por si tiene otros roles)
-    await prisma.cliente.delete({
-      where: { id: clienteId },
+      await tx.ubicacionInstalacion.deleteMany({ where: { clienteId } })
+      await tx.cliente.delete({ where: { id: clienteId } })
     })
 
     revalidatePath("/dashboard/clientes")
@@ -279,5 +236,193 @@ export async function eliminarCliente(clienteId: string) {
   } catch (error) {
     console.error("Error al eliminar cliente:", error)
     return { error: "Error al eliminar el cliente" }
+  }
+}
+
+// ─── CAMBIAR ESTADO DE CONEXIÓN ───────────────────────────────────────────────
+export async function cambiarEstadoConexion(clienteId: string, nuevoEstado: EstadoConexion) {
+  try {
+    await prisma.cliente.update({
+      where: { id: clienteId },
+      data: { estadoConexion: nuevoEstado },
+    })
+    revalidatePath("/dashboard/clientes")
+    revalidatePath(`/dashboard/clientes/${clienteId}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Error al cambiar estado:", error)
+    return { error: "Error al cambiar el estado del cliente" }
+  }
+}
+
+// ─── CRUD UBICACIÓN DE INSTALACIÓN ───────────────────────────────────────────
+export async function crearUbicacionInstalacion(clienteId: string, formData: FormData) {
+  try {
+    const direccion = (formData.get("direccion") as string)?.trim()
+    const latitudStr = formData.get("latitud") as string
+    const longitudStr = formData.get("longitud") as string
+    const referenciaVisual = (formData.get("referenciaVisual") as string)?.trim()
+
+    if (!direccion) return { error: "La dirección es obligatoria" }
+
+    const ubicacion = await prisma.ubicacionInstalacion.create({
+      data: {
+        clienteId,
+        direccion,
+        latitud: latitudStr ? parseFloat(latitudStr) : null,
+        longitud: longitudStr ? parseFloat(longitudStr) : null,
+        referenciaVisual: referenciaVisual || null,
+      },
+    })
+
+    revalidatePath(`/dashboard/clientes/${clienteId}`)
+    return { success: true, data: ubicacion }
+  } catch (error) {
+    console.error("Error al crear ubicación:", error)
+    return { error: "Error al crear la ubicación de instalación" }
+  }
+}
+
+export async function actualizarUbicacionInstalacion(
+  ubicacionId: string,
+  clienteId: string,
+  formData: FormData
+) {
+  try {
+    const direccion = (formData.get("direccion") as string)?.trim()
+    const latitudStr = formData.get("latitud") as string
+    const longitudStr = formData.get("longitud") as string
+    const referenciaVisual = (formData.get("referenciaVisual") as string)?.trim()
+
+    if (!direccion) return { error: "La dirección es obligatoria" }
+
+    await prisma.ubicacionInstalacion.update({
+      where: { id: ubicacionId },
+      data: {
+        direccion,
+        latitud: latitudStr ? parseFloat(latitudStr) : null,
+        longitud: longitudStr ? parseFloat(longitudStr) : null,
+        referenciaVisual: referenciaVisual || null,
+      },
+    })
+
+    revalidatePath(`/dashboard/clientes/${clienteId}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Error al actualizar ubicación:", error)
+    return { error: "Error al actualizar la ubicación" }
+  }
+}
+
+export async function eliminarUbicacionInstalacion(ubicacionId: string, clienteId: string) {
+  try {
+    const contratosAsociados = await prisma.contrato.count({
+      where: { ubicacionInstalacionId: ubicacionId },
+    })
+    if (contratosAsociados > 0)
+      return { error: "No se puede eliminar una ubicación con contratos asociados" }
+
+    await prisma.configuracionOnt.deleteMany({ where: { ubicacionInstalacionId: ubicacionId } })
+    await prisma.ubicacionInstalacion.delete({ where: { id: ubicacionId } })
+
+    revalidatePath(`/dashboard/clientes/${clienteId}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Error al eliminar ubicación:", error)
+    return { error: "Error al eliminar la ubicación" }
+  }
+}
+
+// ─── ASIGNAR / DESASIGNAR PUERTO NAP ─────────────────────────────────────────
+
+export async function asignarPuerto(clienteId: string, puertoId: string) {
+  try {
+    // Verificar que el puerto existe y está disponible
+    const puerto = await prisma.puerto.findUnique({ where: { id: puertoId } })
+    if (!puerto)                        return { error: "Puerto no encontrado" }
+    if (puerto.estado !== "DISPONIBLE") return { error: "El puerto no está disponible" }
+    if (puerto.clienteAsignadoId)       return { error: "El puerto ya tiene un cliente asignado" }
+
+    // Si el cliente ya tiene otro puerto, liberarlo primero
+    const cliente = await prisma.cliente.findUnique({
+      where: { id: clienteId },
+      select: { puertoId: true },
+    })
+
+    await prisma.$transaction(async (tx) => {
+      // Liberar puerto anterior si tenía
+      if (cliente?.puertoId) {
+        await tx.puerto.update({
+          where: { id: cliente.puertoId },
+          data:  { estado: "DISPONIBLE", clienteAsignadoId: null },
+        })
+        await tx.cajaNap.update({
+          where: { id: (await tx.puerto.findUnique({ where: { id: cliente.puertoId }, select: { cajaNapId: true } }))!.cajaNapId },
+          data:  { puertosUtilizados: { decrement: 1 } },
+        })
+      }
+
+      // Asignar nuevo puerto
+      await tx.puerto.update({
+        where: { id: puertoId },
+        data:  { estado: "OCUPADO", clienteAsignadoId: clienteId },
+      })
+      await tx.cajaNap.update({
+        where: { id: puerto.cajaNapId },
+        data:  { puertosUtilizados: { increment: 1 } },
+      })
+
+      // Actualizar puertoId en el cliente
+      await tx.cliente.update({
+        where: { id: clienteId },
+        data:  { puertoId },
+      })
+    })
+
+    revalidatePath(`/dashboard/clientes/${clienteId}`)
+    revalidatePath(`/dashboard/infraestructura/cajas/${puerto.cajaNapId}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Error al asignar puerto:", error)
+    return { error: "Error al asignar el puerto" }
+  }
+}
+
+export async function desasignarPuerto(clienteId: string) {
+  try {
+    const cliente = await prisma.cliente.findUnique({
+      where:  { id: clienteId },
+      select: { puertoId: true },
+    })
+    if (!cliente?.puertoId) return { error: "El cliente no tiene puerto asignado" }
+
+    const puerto = await prisma.puerto.findUnique({
+      where:  { id: cliente.puertoId },
+      select: { cajaNapId: true },
+    })
+
+    await prisma.$transaction(async (tx) => {
+      await tx.puerto.update({
+        where: { id: cliente.puertoId! },
+        data:  { estado: "DISPONIBLE", clienteAsignadoId: null },
+      })
+      if (puerto) {
+        await tx.cajaNap.update({
+          where: { id: puerto.cajaNapId },
+          data:  { puertosUtilizados: { decrement: 1 } },
+        })
+      }
+      await tx.cliente.update({
+        where: { id: clienteId },
+        data:  { puertoId: null },
+      })
+    })
+
+    revalidatePath(`/dashboard/clientes/${clienteId}`)
+    if (puerto) revalidatePath(`/dashboard/infraestructura/cajas/${puerto.cajaNapId}`)
+    return { success: true }
+  } catch (error) {
+    console.error("Error al desasignar puerto:", error)
+    return { error: "Error al desasignar el puerto" }
   }
 }

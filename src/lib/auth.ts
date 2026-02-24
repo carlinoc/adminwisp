@@ -51,6 +51,7 @@ export const authOptions: AuthOptions = {
           email: persona.email!,
           name: `${persona.nombres} ${persona.apellidos || ""}`.trim(),
           role: persona.personaUsuario.rolPrincipal,
+          estadoAcceso: persona.personaUsuario.estadoAcceso,
           image: null,
         }
       }
@@ -61,6 +62,7 @@ export const authOptions: AuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.estadoAcceso = user.estadoAcceso
       }
       return token
     },
@@ -68,6 +70,7 @@ export const authOptions: AuthOptions = {
       if (session.user && token.id && token.role) {
         session.user.id = token.id as string
         session.user.role = token.role as string
+        session.user.estadoAcceso = token.estadoAcceso as string
       }
       return session
     }

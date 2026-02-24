@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🌐 AdminWISP — Sistema de Gestión para ISP
 
-## Getting Started
+Panel de administración completo para proveedores de internet (ISP).
 
-First, run the development server:
+## 🚀 Requisitos previos
 
+- Node.js 18+
+- PostgreSQL 14+
+
+## ⚙️ Instalación local
+
+### 1. Instalar dependencias
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Configurar PostgreSQL
+```sql
+CREATE DATABASE "DBWisp";
+CREATE USER admin WITH PASSWORD 'admin';
+GRANT ALL PRIVILEGES ON DATABASE "DBWisp" TO admin;
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 3. Configurar variables de entorno
+```bash
+cp .env.example .env
+```
+Edita `.env` con tus datos. Para generar claves secretas:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+> `ENCRYPTION_KEY` debe tener exactamente **64 caracteres hex** (32 bytes). Se usa para cifrar las contraseñas PPPoE con AES-256-GCM.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 4. Aplicar migraciones y seed
+```bash
+npm run db:migrate
+npm run db:seed
+```
 
-## Learn More
+### 5. Ejecutar
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Abre http://localhost:3000
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🔑 Credenciales iniciales
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Email | Contraseña | Rol |
+|-------|-----------|-----|
+| admin@isp.com | admin123 | ADMIN |
+| carlos.vega@isp.com | vendedor123 | VENDEDOR |
+| luis.ramirez@isp.com | tecnico123 | TECNICO |
 
-## Deploy on Vercel
+## 🔐 Seguridad implementada
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Middleware RBAC**: protege todas las rutas del dashboard por rol
+- **PPPoE cifrado**: AES-256-GCM con IV aleatorio por registro
+- **Contraseñas de usuarios**: bcrypt con salt
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📁 Estructura
+```
+src/
+├── app/dashboard/
+│   ├── page.tsx              # Dashboard con estadísticas
+│   └── clientes/             # CRUD completo
+│       ├── page.tsx          # Lista + búsqueda + filtros
+│       ├── nuevo/page.tsx    # Crear cliente
+│       └── [id]/
+│           ├── page.tsx      # Detalle cliente
+│           └── editar/       # Editar cliente
+├── components/features/clientes/
+│   ├── ClienteForm.tsx       # Formulario create/edit
+│   ├── ClientesTable.tsx     # Tabla con acciones
+│   ├── ClientesSearch.tsx    # Buscador y filtros
+│   ├── CambiarEstadoCliente.tsx  # Dropdown cambio de estado
+│   └── UbicacionesPanel.tsx  # CRUD ubicaciones instalación
+├── server/actions/
+│   ├── clientes.ts           # Actions: CRUD clientes + ubicaciones
+│   └── configuracionOnt.ts   # Actions: CRUD ONT con cifrado
+└── lib/
+    ├── crypto.ts             # AES-256-GCM helper
+    └── auth.ts               # NextAuth config
+```
+
+## 🛠️ Scripts
+```bash
+npm run dev           # Desarrollo
+npm run build         # Build producción
+npm run db:migrate    # Aplicar migraciones
+npm run db:seed       # Poblar BD
+npm run db:studio     # Explorador visual BD
+npm run db:reset      # Resetear BD
+```
+
+## ✅ Módulos implementados
+- Autenticación con roles (ADMIN, VENDEDOR, TECNICO, SOPORTE, CONTADOR)
+- Dashboard con estadísticas
+- **Clientes**: CRUD completo (Natural + Jurídica), detalle, ubicaciones de instalación
+
+## 🔜 Por implementar
+- Contratos, Facturación, Pedidos, Infraestructura, Materiales, Usuarios

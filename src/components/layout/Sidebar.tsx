@@ -14,7 +14,13 @@ import {
   X,
   ChevronDown,
   Layers,
-  Inbox
+  Inbox,
+  Map,
+  Network,
+  UserCog,
+  Warehouse,
+  Zap,
+  CreditCard,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -48,24 +54,55 @@ const navigation = [
     href: "/dashboard/contratos",
     icon: FileText,
     roles: ["ADMIN", "VENDEDOR", "CONTADOR"],
+    children: [
+      { name: "Contratos",        href: "/dashboard/contratos",        icon: FileText },
+      { name: "Planes de Tarifa", href: "/dashboard/contratos/planes", icon: Zap },
+    ],
+  },
+  {
+    name: "Zonas",
+    href: "/dashboard/zonas",
+    icon: Map,
+    roles: ["ADMIN", "TECNICO"],
+    children: [
+      { name: "Zonas de Cobertura", href: "/dashboard/zonas", icon: Map },
+      { name: "Cabeceras", href: "/dashboard/zonas/cabeceras", icon: Network },
+    ],
+  },
+  {
+    name: "Personal",
+    href: "/dashboard/personal",
+    icon: UserCog,
+    roles: ["ADMIN"],
   },
   {
     name: "Infraestructura",
     href: "/dashboard/infraestructura",
     icon: MapPin,
     roles: ["ADMIN", "TECNICO"],
+    children: [
+      { name: "Cajas NAP", href: "/dashboard/infraestructura/cajas", icon: Network },
+    ],
   },
   {
     name: "Facturación",
     href: "/dashboard/facturacion",
     icon: DollarSign,
     roles: ["ADMIN", "CONTADOR"],
+    children: [
+      { name: "Facturas", href: "/dashboard/facturacion/facturas", icon: FileText    },
+      { name: "Pagos",    href: "/dashboard/facturacion/pagos",    icon: CreditCard  },
+    ],
   },
   {
     name: "Pedidos",
     href: "/dashboard/pedidos",
     icon: ClipboardList,
     roles: ["ADMIN", "SOPORTE", "TECNICO"],
+    children: [
+      { name: "Pedidos",         href: "/dashboard/pedidos",       icon: ClipboardList },
+      { name: "Tipos de Pedido", href: "/dashboard/pedidos/tipos", icon: Layers },
+    ],
   },
   {
     name: "Materiales",
@@ -73,8 +110,9 @@ const navigation = [
     icon: Package,
     roles: ["ADMIN", "TECNICO"],
     children: [
-      { name: "Inventario", href: "/dashboard/materiales/inventario", icon: Inbox },
-      { name: "Materiales", href: "/dashboard/materiales/lista", icon: Layers },
+      { name: "Catálogo",     href: "/dashboard/materiales/lista",        icon: Layers },
+      { name: "Inventario",   href: "/dashboard/materiales/inventario",   icon: Inbox },
+      { name: "Asignaciones", href: "/dashboard/materiales/asignaciones", icon: ClipboardList },
     ],
   },
 ]
@@ -150,7 +188,7 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
           {filteredNavigation.map((item) => {
             const Icon = item.icon
             const hasChildren = !!item.children
-            const isChildActive = item.children?.some(child => pathname === child.href)
+            const isChildActive = item.children?.some(child => pathname === child.href || pathname.startsWith(child.href + "/"))
             const isActive = pathname === item.href || isChildActive
             const isMenuOpen = openMenus.includes(item.name)
 
@@ -180,7 +218,17 @@ export default function Sidebar({ user, isOpen, onClose }: SidebarProps) {
                       <div className="ml-5 mt-1 border-l border-gray-100 dark:border-gray-800 space-y-1">
                         {item.children?.map((child) => {
                           const ChildIcon = child.icon
-                          const isSubActive = pathname === child.href
+                          const siblingHrefs = (item.children ?? [])
+                            .filter(s => s.href !== child.href)
+                            .map(s => s.href)
+                          const isBlockedBySibling = siblingHrefs.some(
+                            s => pathname === s || pathname.startsWith(s + "/")
+                          )
+                          const isSubActive = !isBlockedBySibling && (
+                            pathname === child.href ||
+                            pathname.startsWith(child.href + "/") ||
+                            pathname.startsWith(child.href + "?")
+                          )
                           return (
                             <Link
                               key={child.href}
