@@ -1,6 +1,9 @@
+export const dynamic = "force-dynamic"
+
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+
 import { Plus, Users } from "lucide-react"
 import Link from "next/link"
 import PersonalTable from "@/components/features/personal/PersonalTable"

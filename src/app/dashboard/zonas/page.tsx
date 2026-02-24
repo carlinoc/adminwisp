@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+
+export const dynamic = "force-dynamic"
 import { Plus, Map, Network } from "lucide-react"
 import Link from "next/link"
 import ZonasTable from "@/components/features/zonas/ZonasTable"
