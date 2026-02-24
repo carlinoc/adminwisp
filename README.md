@@ -46,11 +46,7 @@ Abre http://localhost:3000
 
 ## 🔑 Credenciales iniciales
 
-| Email | Contraseña | Rol |
-|-------|-----------|-----|
-| admin@isp.com | admin123 | ADMIN |
-| carlos.vega@isp.com | vendedor123 | VENDEDOR |
-| luis.ramirez@isp.com | tecnico123 | TECNICO |
+
 
 ## 🔐 Seguridad implementada
 
@@ -92,11 +88,3 @@ npm run db:seed       # Poblar BD
 npm run db:studio     # Explorador visual BD
 npm run db:reset      # Resetear BD
 ```
-
-## ✅ Módulos implementados
-- Autenticación con roles (ADMIN, VENDEDOR, TECNICO, SOPORTE, CONTADOR)
-- Dashboard con estadísticas
-- **Clientes**: CRUD completo (Natural + Jurídica), detalle, ubicaciones de instalación
-
-## 🔜 Por implementar
-- Contratos, Facturación, Pedidos, Infraestructura, Materiales, Usuarios
