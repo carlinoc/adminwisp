@@ -209,7 +209,7 @@ export default function PuertosPanel({
                       <DropdownMenuItem
                         key={e.value}
                         onClick={() => handleCambiarEstado(puerto.id, e.value)}
-                        disabled={!!puerto.clienteAsignadoId}
+                        disabled={!!puerto.clienteAsignado}
                       >
                         <EIcon className={`mr-2 h-4 w-4 ${e.textColor}`} />
                         {e.label}
@@ -217,7 +217,7 @@ export default function PuertosPanel({
                     )
                   })}
 
-                  {puerto.clienteAsignadoId && (
+                  {puerto.clienteAsignado && (
                     <p className="px-2 py-1 text-xs text-muted-foreground">
                       ⚠ Desasigna el cliente primero
                     </p>
@@ -227,7 +227,7 @@ export default function PuertosPanel({
                   <DropdownMenuItem
                     className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/50"
                     onClick={() => handleQuitarPuerto(puerto.id)}
-                    disabled={!!puerto.clienteAsignadoId}
+                    disabled={!!puerto.clienteAsignado}
                   >
                     <Minus className="mr-2 h-4 w-4" />
                     Quitar puerto

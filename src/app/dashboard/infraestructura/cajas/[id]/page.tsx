@@ -71,6 +71,7 @@ export default async function DetalleCajaNapPage({
     id:           p.id,
     numeroPuerto: p.numeroPuerto,
     estado:       p.estado,
+    clienteAsignadoId: p.clienteAsignadoId,
     clienteAsignado: p.clienteAsignado
       ? {
           id:            p.clienteAsignado.id,

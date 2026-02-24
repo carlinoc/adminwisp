@@ -120,7 +120,7 @@ export async function actualizarPedido(pedidoId: string, formData: FormData) {
 
     REVALIDATE(pedido?.clienteId)
     revalidatePath(`/dashboard/pedidos/${pedidoId}`)
-    return { success: true }
+    return { success: true, data: { id: pedidoId } }
   } catch (error) {
     console.error("Error al actualizar pedido:", error)
     return { error: "Error al actualizar el pedido" }
